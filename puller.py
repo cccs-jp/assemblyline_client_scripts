@@ -15,8 +15,7 @@ from assemblyline_client import get_client
 
 # These are the names of the files which we will use for writing and reading information to
 LOG_FILE = "puller.log"
-INGEST_FILE = "ingest.txt"
-REPORT_FILE = "report.txt"
+REPORT_FILE = "report.csv"
 
 # These are regular expressions used for parameter validation that the user supplies
 IP_REGEX = r"(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
@@ -39,13 +38,13 @@ log = logging.getLogger(__name__)
 
 # These are click commands and options which allow the easy handling of command line arguments and flags
 @click.group(invoke_without_command=True)
-@click.option("--url", type=click.STRING, help="The target URL that hosts Assemblyline.")
-@click.option("-u", "--username", type=click.STRING, help="Your Assemblyline account username.")
-@click.option("--apikey", type=click.STRING,
+@click.option("--url", required=True, type=click.STRING, help="The target URL that hosts Assemblyline.")
+@click.option("-u", "--username", required=True, type=click.STRING, help="Your Assemblyline account username.")
+@click.option("--apikey", required=True, type=click.STRING,
               help="Your Assemblyline account API key. NOTE that this API key requires read access.")
-@click.option("-p", "--path", type=click.Path(exists=True, file_okay=True, readable=True),
-              help="The path to the ingest.txt file containing the ingest_ids to query.")
-def main(url: str, username: str, apikey: str, path: str):
+@click.option("-ms", "--min_score", default=0, type=click.INT, help="The minimum score for files that we want to query from Assemblyline.")
+@click.option("--incident_num", required=True, type=click.INT, help="The incident number for each file to be associated with.")
+def main(url: str, username: str, apikey: str, min_score: int, incident_num: int):
     # Phase 1: Parameter validation
     try:
         validate_parameters(url, username, apikey)
@@ -59,36 +58,27 @@ def main(url: str, username: str, apikey: str, path: str):
     al_client = get_client(url, apikey=(username, apikey))
 
     # Phase 3: Open important files and read their contents
-    ingest_file = open(INGEST_FILE, "r")
     report_file = open(REPORT_FILE, "a")
-    ingest_file_contents = ingest_file.read()
-    ingest_ids = list(filter(None, ingest_file_contents.split("\n")))
 
     # Phase 4: Get submission details for each ingest_id
-    for ingest_id in ingest_ids:
-        log.debug(f"Searching for the submission for ingest_id {ingest_id}")
-        submission_res = al_client.search.submission(f"metadata.ingest_id:{ingest_id}")
+    log.debug(f"Searching for the submission for incident number {incident_num}")
+    submission_res = al_client.search.stream.submission(f"params.description:'Incident Number\: {incident_num}' AND max_score:>={min_score}")
+    for submission in submission_res:
+        # Deep dive into the submission to get the files
+        full_sub = al_client.submission.full(submission["sid"])
+        for file in full_sub["files"]:
 
-        if submission_res["total"]:
-            for item in submission_res["items"]:
-
-                # Deep dive into the submission to get the files
-                full_sub = al_client.submission.full(item["sid"])
-                for file in full_sub["files"]:
-
-                    # Report accordingly.
-                    if item["max_score"] >= 1000:
-                        msg = f"{file['sha256']} is unsafe.\n"
-                        print(msg)
-                        log.debug(msg)
-                        report_file.write(msg)
-                    else:
-                        msg = f"{file['sha256']} is safe.\n"
-                        print(msg)
-                        log.debug(msg)
-                        report_file.write(msg)
-        else:
-            log.warning(f"ingest_id {ingest_id} did not result in a submission.")
+            # Report accordingly.
+            if submission["max_score"] >= 1000:
+                msg = f"{file['sha256']},unsafe\n"
+                print(msg)
+                log.debug(msg)
+                report_file.write(msg)
+            else:
+                msg = f"{file['sha256']},safe\n"
+                print(msg)
+                log.debug(msg)
+                report_file.write(msg)
 
     msg = "All done!"
     print(msg)

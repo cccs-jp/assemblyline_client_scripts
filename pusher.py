@@ -22,7 +22,10 @@ from assemblyline_client import get_client
 # These are the names of the files which we will use for writing and reading information to
 LOG_FILE = "pusher.log"
 HASH_FILE = "hashes.txt"
-INGEST_FILE = "ingest.txt"
+
+# These are the max and min size of files able to be submitted to Assemblyline, in bytes
+MAX_FILE_SIZE = 100000000
+MIN_FILE_SIZE = 1
 
 # These are regular expressions used for parameter validation that the user supplies
 IP_REGEX = r"(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
@@ -55,22 +58,24 @@ def get_id_from_data(data: bytes) -> str:
 
 # These are click commands and options which allow the easy handling of command line arguments and flags
 @click.group(invoke_without_command=True)
-@click.option("--url", type=click.STRING, help="The target URL that hosts Assemblyline.")
-@click.option("-u", "--username", type=click.STRING,  help="Your Assemblyline account username.")
-@click.option("--apikey", type=click.STRING,
+@click.option("--url", required=True, type=click.STRING, help="The target URL that hosts Assemblyline.")
+@click.option("-u", "--username", required=True, type=click.STRING,  help="Your Assemblyline account username.")
+@click.option("--apikey", required=True, type=click.STRING,
               help="Your Assemblyline account API key. NOTE that this API key requires write access.")
-@click.option("--ttl", type=click.INT,
+@click.option("--ttl", type=click.INT, default=1,
               help="The amount of time that you want your Assemblyline submissions to live on the Assemblyline system (in days).")
-@click.option("--classification", type=click.Choice(["TLP:W", "TLP:G", "TLP:A", "TLP:R"], case_sensitive=False),
+@click.option("--classification", required=True, type=click.STRING,
               help="The classification level for each file submitted to Assemblyline.")
-@click.option("--service_selection", type=click.STRING,
+@click.option("--service_selection", required=True, type=click.STRING,
               help="A comma-separated list (no spaces!) of service names to send files to.")
 @click.option("-t", "--is_test", is_flag=True, help="A flag that indicates that you're running a test.")
-@click.option("-p", "--path", type=click.Path(exists=True, readable=True),
+@click.option("-p", "--path", required=True, type=click.Path(exists=True, readable=True),
               help="The directory path containing files that you want to submit to Assemblyline.")
 @click.option("--fresh", is_flag=True, help="We do not care about previous runs and resuming those.")
 @click.option("--wait", is_flag=True, help="Wait for the analysis of ingested files to complete.")
-def main(url: str, username: str, apikey: str, ttl: int, classification: str, service_selection: str, is_test: bool, path: str, fresh: bool, wait: bool):
+@click.option("--incident_num", required=True, type=click.INT,
+              help="The incident number for each file to be associated with.")
+def main(url: str, username: str, apikey: str, ttl: int, classification: str, service_selection: str, is_test: bool, path: str, fresh: bool, wait: bool, incident_num: int):
     # Phase 1: Parameter validation
     try:
         service_selection = validate_parameters(url, username, apikey, ttl, service_selection)
@@ -83,6 +88,7 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
     # Phase 2: Setting the parameters
     settings = {
         "ttl": ttl,
+        "description": f"Incident Number: {incident_num}",
         "ignore_cache": "true",
         "classification": classification,
         "services": {
@@ -104,7 +110,6 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
     number_of_files_ingested = 0
     if fresh:
         os.remove(HASH_FILE)
-        os.remove(INGEST_FILE)
 
     # Phase 5: Script Resumption Logic
     # If the script somehow crashed or stopped prematurely, then the text file containing
@@ -124,7 +129,6 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
 
     # Create file handlers for the two information files we need.
     hash_file = open(HASH_FILE, "a+")
-    ingest_file = open(INGEST_FILE, "a+")
 
     # Phase 6: Create the Assemblyline Client
     al_client = get_client(url, apikey=(username, apikey))
@@ -132,54 +136,66 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
     # Phase 7: Recursively go through every file in the provided folder and its subfolders.
     for root, dir_names, file_names in os.walk(path):
         for file_name in file_names:
-            file_path = os.path.join(root, file_name)
+            # Wrap everything in a try-catch so we become invincible
+            try:
+                file_path = os.path.join(root, file_name)
+                file_size = os.path.getsize(file_path)
 
-            # Phase 8: Ingestion Logic
+                if file_size > MAX_FILE_SIZE:
+                    msg = f"{file_path} is too big. Size: {file_size} > {MAX_FILE_SIZE}."
+                    print(msg)
+                    log.debug(msg)
+                    continue
+                elif file_size < MIN_FILE_SIZE:
+                    msg = f"{file_path} is too small. Size: {file_size} < {MIN_FILE_SIZE}."
+                    print(msg)
+                    log.debug(msg)
+                    continue
 
-            # Create a sha256 hash using the file contents.
-            sha = get_id_from_data(open(file_path, "rb").read())
+                # Phase 8: Ingestion Logic
 
-            # We only care about files that occur after the last sha in the hash file
-            if resume_ingestion_sha and resume_ingestion_sha == sha:
-                skip = False
+                # Create a sha256 hash using the file contents.
+                sha = get_id_from_data(open(file_path, "rb").read())
 
-            # If we have yet to come up to the file who matches the last submitted sha, continue looking!
-            if skip:
-                continue
+                # We only care about files that occur after the last sha in the hash file
+                if resume_ingestion_sha and resume_ingestion_sha == sha:
+                    skip = False
 
-            # If file is in hash table, don't ingest it
-            if sha in hash_table:
-                continue
-            else:
-                hash_table.append(sha)
+                # If we have yet to come up to the file who matches the last submitted sha, continue looking!
+                if skip:
+                    continue
 
-            # Phase 9: Ingestion and logging everything
+                # If file is in hash table, don't ingest it
+                if sha in hash_table:
+                    continue
+                else:
+                    hash_table.append(sha)
 
-            # Pre-ingestion logging
-            pre_ingestion_message = f"{file_path} ({sha}) is about to be ingested."
-            print(pre_ingestion_message)
-            log.debug(pre_ingestion_message)
+                # Phase 9: Ingestion and logging everything
 
-            # Actual ingestion
-            if wait:
-                resp = al_client.ingest(path=file_path, fname=file_name, nq="notification_queue", params=settings)
-            else:
-                resp = al_client.ingest(path=file_path, fname=file_name, params=settings)
+                # Pre-ingestion logging
+                pre_ingestion_message = f"{file_path} ({sha}) is about to be ingested."
+                print(pre_ingestion_message)
+                log.debug(pre_ingestion_message)
 
-            # Documenting the hash and the ingest_id into the text files
-            number_of_files_ingested += 1
-            hash_file.write(f"{sha}\n")
-            ingest_id = resp['ingest_id']
-            ingest_file.write(f"{ingest_id}\n")
+                # Actual ingestion
+                if wait:
+                    resp = al_client.ingest(path=file_path, fname=file_name, nq="notification_queue", params=settings)
+                else:
+                    resp = al_client.ingest(path=file_path, fname=file_name, params=settings)
 
-            # Post ingestion logging
-            post_ingestion_message = f"{file_path} ({sha}) has been ingested with ingest_id {ingest_id}."
-            print(post_ingestion_message)
-            log.debug(post_ingestion_message)
-            break
-        break
+                # Documenting the hash and the ingest_id into the text files
+                number_of_files_ingested += 1
+                hash_file.write(f"{sha}\n")
+                ingest_id = resp['ingest_id']
 
-    ingest_file.close()
+                # Post ingestion logging
+                post_ingestion_message = f"{file_path} ({sha}) has been ingested with ingest_id {ingest_id}."
+                print(post_ingestion_message)
+                log.debug(post_ingestion_message)
+            except Exception as e:
+                print(e)
+                log.error(e)
 
     # Phase 10: The waiting game
     if wait:

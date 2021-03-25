@@ -20,7 +20,8 @@ For the machine(s) running the "Pusher" and the "Puller":
 - You will need at least Python 3
 - You will need the `assemblyline_client` and its dependencies installed. 
   [HOW-TO](https://cybercentrecanada.github.io/assemblyline4_docs/docs/user_manual/assemblyline_client.html)
-  
+- For the offline installation of these packages and libraries, see the Offline Installation section
+
 In general:
 - You will need the URL of an Assemblyline instance that you have an account on. 
   - Want to create your own Assemblyline instance? [HOW-TO](https://cybercentrecanada.github.io/assemblyline4_docs/docs/installation.html)
@@ -28,6 +29,24 @@ In general:
   The Write-only key will be used for the "Pusher", and the Read-only key will be used for the "Puller".
   - It is considered best practice to not use an API key that has both Read-Write access on the compromised system, so 
   we *highly* recommend using two keys.
+    
+### Offline Installation
+You will need to run the following code from a machine that has Internet access and then transfer it to the machine
+that does not have Internet access.
+Linux:
+```
+mkdir offline_packages
+cd offline_packages
+# If you already have 
+sudo su
+apt-get install --download-only python3 libffi-dev libssl-dev --reinstall -y
+mv /var/cache/apt/archives/*.deb .
+python3 -m pip download pycryptodome requests requests[security] python-baseconv python-socketio[client] socketio-client==0.5.7.4
+python3 -m pip download assemblyline_client
+cd ..
+exit
+zip offline_packages.zip offline_packages/
+```
 
 ## Run the thing!
 ### Pusher
@@ -35,7 +54,7 @@ On the compromised machine...
 
 To get a sense of the options available to you:
 ```
-python pusher.py --help
+python3 pusher.py --help
 Usage: pusher.py [OPTIONS] COMMAND [ARGS]...
 
 Options:
@@ -90,7 +109,7 @@ On the non-compromised machine...
 
 To get a sense of the options available to you:
 ```
-python puller.py --help
+python3 puller.py --help
 Usage: puller.py [OPTIONS] COMMAND [ARGS]...
 
 Options:
@@ -117,3 +136,4 @@ Now check the `report.txt` file that was created by the "Puller". This file will
 are safe/unsafe.
 
 Act accordingly with this wealth of knowledge at your disposal.
+
