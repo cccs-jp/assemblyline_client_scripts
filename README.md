@@ -58,51 +58,48 @@ python3 pusher.py --help
 Usage: pusher.py [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  --url TEXT                      The target URL that hosts Assemblyline.
-  -u, --username TEXT             Your Assemblyline account username.
-  --apikey TEXT                   Your Assemblyline account API key. NOTE that
-                                  this API key requires write access.
+  --url TEXT                The target URL that hosts Assemblyline.
+                            [required]
 
-  --ttl INTEGER                   The amount of time that you want your
-                                  Assemblyline submissions to live on the
-                                  Assemblyline system (in days).
+  -u, --username TEXT       Your Assemblyline account username.  [required]
+  --apikey TEXT             Your Assemblyline account API key. NOTE that this
+                            API key requires write access.  [required]
 
-  --classification [TLP:W|TLP:G|TLP:A|TLP:R]
-                                  The classification level for each file
-                                  submitted to Assemblyline.
+  --ttl INTEGER             The amount of time that you want your Assemblyline
+                            submissions to live on the Assemblyline system (in
+                            days).
 
-  --service_selection TEXT        A comma-separated list (no spaces!) of
-                                  service names to send files to.
+  --classification TEXT     The classification level for each file submitted
+                            to Assemblyline.  [required]
 
-  -t, --is_test                   A flag that indicates that you're running a
-                                  test.
+  --service_selection TEXT  A comma-separated list (no spaces!) of service
+                            names to send files to.  [required]
 
-  -p, --path PATH                 The directory path containing files that you
-                                  want to submit to Assemblyline.
+  -t, --is_test             A flag that indicates that you're running a test.
+  -p, --path PATH           The directory path containing files that you want
+                            to submit to Assemblyline.  [required]
 
-  --fresh                         We do not care about previous runs and
-                                  resuming those.
+  --fresh                   We do not care about previous runs and resuming
+                            those.
 
-  --wait                          Wait for the analysis of ingested files to
-                                  complete.
+  --wait                    Wait for the analysis of ingested files to
+                            complete.
 
-  --help                          Show this message and exit.
+  --incident_num INTEGER    The incident number for each file to be associated
+                            with.  [required]
+
+  --help                    Show this message and exit.
 ```
 
 Example Usage:
 ```
-python pusher.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --ttl=<number-of-days-to-live> --classification="<classification>" --service_selection="<service-name>,<service-name>" -p "/path/to/compromised/directory"
+python pusher.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --ttl=<number-of-days-to-live> --classification="<classification>" --service_selection="<service-name>,<service-name>" -p "/path/to/compromised/directory" --incident_num=123
 ```
 
 After a successful run you should get some logs, followed by "All done!"
 
 You can check that these files were ingested successfully by browsing to the Submissions page of the
 Assemblyline instance that you're using.
-
-### Move the contents of ingest.txt over
-The "Pusher" creates an `ingest.txt` containing ingest IDs for the submitted files. We 
-want to copy the contents of this file over to a new file of the same name on the machine which we
-will be using the "Puller" on.
 
 ### Puller
 On the non-compromised machine...
@@ -113,21 +110,25 @@ python3 puller.py --help
 Usage: puller.py [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  --url TEXT           The target URL that hosts Assemblyline.
-  -u, --username TEXT  Your Assemblyline account username.
-  --apikey TEXT        Your Assemblyline account API key. NOTE that this API
-                       key requires read access.
+  --url TEXT                The target URL that hosts Assemblyline.
+                            [required]
 
-  -p, --path PATH      The path to the ingest.txt file containing the
-                       ingest_ids to query.
+  -u, --username TEXT       Your Assemblyline account username.  [required]
+  --apikey TEXT             Your Assemblyline account API key. NOTE that this
+                            API key requires read access.  [required]
 
-  --help               Show this message and exit.
+  -ms, --min_score INTEGER  The minimum score for files that we want to query
+                            from Assemblyline.
 
+  --incident_num INTEGER    The incident number for each file to be associated
+                            with.  [required]
+
+  --help                    Show this message and exit.
 ```
 
 Example Usage:
 ```
-python puller.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" -p "/path/to/ingest.txt"
+python puller.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --incident_num=123
 ```
 
 After a successful run, you should get some logs, followed by "All done!"
