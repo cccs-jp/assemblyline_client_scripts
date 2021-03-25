@@ -31,23 +31,34 @@ In general:
   - It is considered best practice to not use an API key that has both Read-Write access on the compromised system, so 
   we *highly* recommend using two keys.
     
-### Offline Installation (WIP)
+### Offline Installation
 You will need to run the following code from a machine that has Internet access and then transfer it to the machine
 that does not have Internet access.
-Linux:
+#### Linux:
 ```
 mkdir offline_packages
 cd offline_packages
-# If you already have 
 sudo su
-apt-get install --download-only python3 libffi-dev libssl-dev --reinstall -y
+apt-get install --download-only python3 python3-pip libffi-dev libssl-dev --reinstall -y
 mv /var/cache/apt/archives/*.deb .
-python3 -m pip download pycryptodome requests requests[security] python-baseconv python-socketio[client] socketio-client==0.5.7.4 click
+python3 -m pip download pip pycryptodome requests requests[security] python-baseconv python-socketio[client] socketio-client==0.5.7.4 click
 python3 -m pip download assemblyline_client
 cd ..
 exit
-zip offline_packages.zip offline_packages/
+tar -czvf offline_packages.tar.gz offline_packages/
+Copy this file over using SCP, FTP or some other method
 ```
+
+On the machine that is offline, do the following:
+```
+tar -xzvf offline_packages.tar.gz
+cd offline_packages
+sudo apt-get install ./*.deb -y
+for x in `ls *.whl`;  do python3 -m pip install $x; done
+```
+
+#### Windows
+WIP
 
 ## Run the thing!
 ### Pusher
