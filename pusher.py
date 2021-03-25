@@ -89,7 +89,6 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
     settings = {
         "ttl": ttl,
         "description": f"Incident Number: {incident_num}",
-        "ignore_cache": "true",
         "classification": classification,
         "services": {
             "selected": service_selection
@@ -124,8 +123,9 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
         resume_ingestion_sha = check_output(["tail", "-1", HASH_FILE]).decode().strip("\n")
         # This adds the most recent hash that has been ingested to the hash table, so that
         # we do not re-ingest it during this run.
-        hash_table.append(resume_ingestion_sha)
-        skip = True
+        if resume_ingestion_sha:
+            hash_table.append(resume_ingestion_sha)
+            skip = True
 
     # Create file handlers for the two information files we need.
     hash_file = open(HASH_FILE, "a+")
