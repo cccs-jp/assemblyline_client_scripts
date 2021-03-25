@@ -42,9 +42,13 @@ log = logging.getLogger(__name__)
 @click.option("-u", "--username", required=True, type=click.STRING, help="Your Assemblyline account username.")
 @click.option("--apikey", required=True, type=click.STRING,
               help="Your Assemblyline account API key. NOTE that this API key requires read access.")
-@click.option("-ms", "--min_score", default=0, type=click.INT, help="The minimum score for files that we want to query from Assemblyline.")
+@click.option("--min_score", default=0, type=click.INT, help="The minimum score for files that we want to query from Assemblyline.")
 @click.option("--incident_num", required=True, type=click.INT, help="The incident number for each file to be associated with.")
 def main(url: str, username: str, apikey: str, min_score: int, incident_num: int):
+    """
+    Example:
+    python3 puller.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --incident_num=123
+    """
     # Phase 1: Parameter validation
     try:
         validate_parameters(url, username, apikey)

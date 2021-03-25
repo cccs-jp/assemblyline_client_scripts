@@ -62,7 +62,7 @@ def get_id_from_data(data: bytes) -> str:
 @click.option("-u", "--username", required=True, type=click.STRING,  help="Your Assemblyline account username.")
 @click.option("--apikey", required=True, type=click.STRING,
               help="Your Assemblyline account API key. NOTE that this API key requires write access.")
-@click.option("--ttl", type=click.INT, default=1,
+@click.option("--ttl", type=click.INT, default=30,
               help="The amount of time that you want your Assemblyline submissions to live on the Assemblyline system (in days).")
 @click.option("--classification", required=True, type=click.STRING,
               help="The classification level for each file submitted to Assemblyline.")
@@ -71,11 +71,15 @@ def get_id_from_data(data: bytes) -> str:
 @click.option("-t", "--is_test", is_flag=True, help="A flag that indicates that you're running a test.")
 @click.option("-p", "--path", required=True, type=click.Path(exists=True, readable=True),
               help="The directory path containing files that you want to submit to Assemblyline.")
-@click.option("--fresh", is_flag=True, help="We do not care about previous runs and resuming those.")
-@click.option("--wait", is_flag=True, help="Wait for the analysis of ingested files to complete.")
+@click.option("-f", "--fresh", is_flag=True, help="We do not care about previous runs and resuming those.")
+@click.option("-w", "--wait", is_flag=True, help="Wait for the analysis of ingested files to complete.")
 @click.option("--incident_num", required=True, type=click.INT,
               help="The incident number for each file to be associated with.")
 def main(url: str, username: str, apikey: str, ttl: int, classification: str, service_selection: str, is_test: bool, path: str, fresh: bool, wait: bool, incident_num: int):
+    """
+    Example:
+    python3 pusher.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --classification="<classification>" --service_selection="<service-name>,<service-name>" --path "/path/to/compromised/directory" --incident_num=123
+    """
     # Phase 1: Parameter validation
     try:
         service_selection = validate_parameters(url, username, apikey, ttl, service_selection)

@@ -58,6 +58,12 @@ To get a sense of the options available to you:
 python3 pusher.py --help
 Usage: pusher.py [OPTIONS] COMMAND [ARGS]...
 
+  Example: python3 pusher.py --url="https://<domain-of-Assemblyline-
+  instance>" --username="<user-name>" --apikey="<api-key-name>:<key>"
+  --classification="<classification>" --service_selection="<service-
+  name>,<service-name>" --path "/path/to/compromised/directory"
+  --incident_num=123
+
 Options:
   --url TEXT                The target URL that hosts Assemblyline.
                             [required]
@@ -80,10 +86,10 @@ Options:
   -p, --path PATH           The directory path containing files that you want
                             to submit to Assemblyline.  [required]
 
-  --fresh                   We do not care about previous runs and resuming
+  -f, --fresh               We do not care about previous runs and resuming
                             those.
 
-  --wait                    Wait for the analysis of ingested files to
+  -w, --wait                Wait for the analysis of ingested files to
                             complete.
 
   --incident_num INTEGER    The incident number for each file to be associated
@@ -94,7 +100,7 @@ Options:
 
 Example Usage:
 ```
-python pusher.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --ttl=<number-of-days-to-live> --classification="<classification>" --service_selection="<service-name>,<service-name>" -p "/path/to/compromised/directory" --incident_num=123
+python3 pusher.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --ttl=<number-of-days-to-live> --classification="<classification>" --service_selection="<service-name>,<service-name>" -p "/path/to/compromised/directory" --incident_num=123
 ```
 
 After a successful run you should get some logs, followed by "All done!"
@@ -110,26 +116,28 @@ To get a sense of the options available to you:
 python3 puller.py --help
 Usage: puller.py [OPTIONS] COMMAND [ARGS]...
 
+  Example: python3 puller.py --url="https://<domain-of-Assemblyline-
+  instance>" --username="<user-name>" --apikey="<api-key-name>:<key>"
+  --incident_num=123
+
 Options:
-  --url TEXT                The target URL that hosts Assemblyline.
-                            [required]
+  --url TEXT              The target URL that hosts Assemblyline.  [required]
+  -u, --username TEXT     Your Assemblyline account username.  [required]
+  --apikey TEXT           Your Assemblyline account API key. NOTE that this
+                          API key requires read access.  [required]
 
-  -u, --username TEXT       Your Assemblyline account username.  [required]
-  --apikey TEXT             Your Assemblyline account API key. NOTE that this
-                            API key requires read access.  [required]
+  --min_score INTEGER     The minimum score for files that we want to query
+                          from Assemblyline.
 
-  -ms, --min_score INTEGER  The minimum score for files that we want to query
-                            from Assemblyline.
+  --incident_num INTEGER  The incident number for each file to be associated
+                          with.  [required]
 
-  --incident_num INTEGER    The incident number for each file to be associated
-                            with.  [required]
-
-  --help                    Show this message and exit.
+  --help                  Show this message and exit.
 ```
 
 Example Usage:
 ```
-python puller.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --incident_num=123
+python3 puller.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --incident_num=123
 ```
 
 After a successful run, you should get some logs, followed by "All done!"
