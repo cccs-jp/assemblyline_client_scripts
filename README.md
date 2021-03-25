@@ -1,8 +1,8 @@
 # General Description
 This repository contains two Python scripts used for triaging compromised systems with Assemblyline.
-1. The "Pusher" (`pusher.py`): pushes files from the compromised system to an Assemblyline
+1. The "Pusher" (`file-submitter.py`): pushes files from the compromised system to an Assemblyline
 instance for analysis.
-2. The "Puller" (`puller.py`): pulls the submissions from the
+2. The "Puller" (`results-analyzer.py`): pulls the submissions from the
 Assemblyline instance and reports on if the submissions are safe/unsafe.
    
 
@@ -66,10 +66,10 @@ On the compromised machine...
 
 To get a sense of the options available to you:
 ```
-python3 pusher.py --help
-Usage: pusher.py [OPTIONS] COMMAND [ARGS]...
+python3 file-submitter.py --help
+Usage: file-submitter.py [OPTIONS] COMMAND [ARGS]...
 
-  Example: python3 pusher.py --url="https://<domain-of-Assemblyline-
+  Example: python3 file-submitter.py --url="https://<domain-of-Assemblyline-
   instance>" --username="<user-name>" --apikey="<api-key-name>:<key>"
   --classification="<classification>" --service_selection="<service-
   name>,<service-name>" --path "/path/to/compromised/directory"
@@ -111,7 +111,7 @@ Options:
 
 Example Usage:
 ```
-python3 pusher.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --ttl=<number-of-days-to-live> --classification="<classification>" --service_selection="<service-name>,<service-name>" -p "/path/to/compromised/directory" --incident_num=123
+python3 file-submitter.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --ttl=<number-of-days-to-live> --classification="<classification>" --service_selection="<service-name>,<service-name>" -p "/path/to/compromised/directory" --incident_num=123
 ```
 
 After a successful run you should get some logs, followed by "All done!"
@@ -124,10 +124,10 @@ On the non-compromised machine...
 
 To get a sense of the options available to you:
 ```
-python3 puller.py --help
-Usage: puller.py [OPTIONS] COMMAND [ARGS]...
+python3 results-analyzer.py --help
+Usage: results-analyzer.py [OPTIONS] COMMAND [ARGS]...
 
-  Example: python3 puller.py --url="https://<domain-of-Assemblyline-
+  Example: python3 results-analyzer.py --url="https://<domain-of-Assemblyline-
   instance>" --username="<user-name>" --apikey="<api-key-name>:<key>"
   --incident_num=123
 
@@ -148,7 +148,7 @@ Options:
 
 Example Usage:
 ```
-python3 puller.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --incident_num=123
+python3 results-analyzer.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --incident_num=123
 ```
 
 After a successful run, you should get some logs, followed by "All done!"

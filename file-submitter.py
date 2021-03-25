@@ -79,7 +79,7 @@ def get_id_from_data(data: bytes) -> str:
 def main(url: str, username: str, apikey: str, ttl: int, classification: str, service_selection: str, is_test: bool, path: str, fresh: bool, incident_num: int, retries: int):
     """
     Example:
-    python3 pusher.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --classification="<classification>" --service_selection="<service-name>,<service-name>" --path "/path/to/compromised/directory" --incident_num=123
+    python3 file-submitter.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --classification="<classification>" --service_selection="<service-name>,<service-name>" --path "/path/to/compromised/directory" --incident_num=123
     """
     # Phase 1: Parameter validation
     try:

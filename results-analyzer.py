@@ -48,7 +48,7 @@ log = logging.getLogger(__name__)
 def main(url: str, username: str, apikey: str, min_score: int, incident_num: int):
     """
     Example:
-    python3 puller.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --incident_num=123
+    python3 results-analyzer.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --incident_num=123
     """
     # Phase 1: Parameter validation
     try:
@@ -64,7 +64,7 @@ def main(url: str, username: str, apikey: str, min_score: int, incident_num: int
 
     # Phase 3: Open important files and read their contents
     report_file = open(REPORT_FILE, "a")
-
+    report_file.write("SHA256,Score,URL,Errors\n")
     # Phase 4: Get submission details for each ingest_id
     log.debug(f"Searching for the submission for incident number {incident_num}")
     submission_res = al_client.search.stream.submission(f"params.description:'Incident Number\: {incident_num}' AND max_score:>={min_score}")
@@ -85,7 +85,7 @@ def main(url: str, username: str, apikey: str, min_score: int, incident_num: int
         for file in full_sub["files"]:
 
             # Report accordingly.
-            msg = f"{file['sha256']},{full_sub['max_score']},{url}/submission/report/{submission['sid']}\n"
+            msg = f"{file['sha256']},{full_sub['max_score']},{url}/submission/report/{submission['sid']},{full_sub['errors']}\n"
             print(msg)
             log.debug(msg)
             report_file.write(msg)
