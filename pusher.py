@@ -108,7 +108,7 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
     if wait:
         notification_queue = Queue()
     number_of_files_ingested = 0
-    if fresh:
+    if fresh and os.path.exists(HASH_FILE):
         os.remove(HASH_FILE)
 
     # Phase 5: Script Resumption Logic

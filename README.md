@@ -18,7 +18,8 @@ isn't compromised.
 ## Prequisites
 For the machine(s) running the "Pusher" and the "Puller":
 - You will need at least Python 3
-- You will need the `assemblyline_client` and its dependencies installed. 
+- You will need the `click` PIP module and its dependencies installed
+- You will need the `assemblyline_client` PIP module and its dependencies installed. 
   [HOW-TO](https://cybercentrecanada.github.io/assemblyline4_docs/docs/user_manual/assemblyline_client.html)
 - For the offline installation of these packages and libraries, see the Offline Installation section
 
@@ -30,7 +31,7 @@ In general:
   - It is considered best practice to not use an API key that has both Read-Write access on the compromised system, so 
   we *highly* recommend using two keys.
     
-### Offline Installation
+### Offline Installation (WIP)
 You will need to run the following code from a machine that has Internet access and then transfer it to the machine
 that does not have Internet access.
 Linux:
@@ -41,7 +42,7 @@ cd offline_packages
 sudo su
 apt-get install --download-only python3 libffi-dev libssl-dev --reinstall -y
 mv /var/cache/apt/archives/*.deb .
-python3 -m pip download pycryptodome requests requests[security] python-baseconv python-socketio[client] socketio-client==0.5.7.4
+python3 -m pip download pycryptodome requests requests[security] python-baseconv python-socketio[client] socketio-client==0.5.7.4 click
 python3 -m pip download assemblyline_client
 cd ..
 exit
