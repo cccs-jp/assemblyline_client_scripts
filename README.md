@@ -100,11 +100,11 @@ Options:
   -f, --fresh               We do not care about previous runs and resuming
                             those.
 
-  -w, --wait                Wait for the analysis of ingested files to
-                            complete.
-
-  --incident_num INTEGER    The incident number for each file to be associated
+  --incident_num TEXT       The incident number for each file to be associated
                             with.  [required]
+
+  --retries INTEGER         The number of times you want to retry submitting a
+                            file after it has failed.
 
   --help                    Show this message and exit.
 ```
@@ -132,18 +132,18 @@ Usage: puller.py [OPTIONS] COMMAND [ARGS]...
   --incident_num=123
 
 Options:
-  --url TEXT              The target URL that hosts Assemblyline.  [required]
-  -u, --username TEXT     Your Assemblyline account username.  [required]
-  --apikey TEXT           Your Assemblyline account API key. NOTE that this
-                          API key requires read access.  [required]
+  --url TEXT           The target URL that hosts Assemblyline.  [required]
+  -u, --username TEXT  Your Assemblyline account username.  [required]
+  --apikey TEXT        Your Assemblyline account API key. NOTE that this API
+                       key requires read access.  [required]
 
-  --min_score INTEGER     The minimum score for files that we want to query
-                          from Assemblyline.
+  --min_score INTEGER  The minimum score for files that we want to query from
+                       Assemblyline.
 
-  --incident_num INTEGER  The incident number for each file to be associated
-                          with.  [required]
+  --incident_num TEXT  The incident number for each file to be associated
+                       with.  [required]
 
-  --help                  Show this message and exit.
+  --help               Show this message and exit.
 ```
 
 Example Usage:

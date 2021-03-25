@@ -10,6 +10,7 @@ There are 4 phases in the script, each documented accordingly.
 import logging
 import click
 from re import match
+from time import sleep
 
 from assemblyline_client import get_client
 
@@ -43,7 +44,7 @@ log = logging.getLogger(__name__)
 @click.option("--apikey", required=True, type=click.STRING,
               help="Your Assemblyline account API key. NOTE that this API key requires read access.")
 @click.option("--min_score", default=0, type=click.INT, help="The minimum score for files that we want to query from Assemblyline.")
-@click.option("--incident_num", required=True, type=click.INT, help="The incident number for each file to be associated with.")
+@click.option("--incident_num", required=True, type=click.STRING, help="The incident number for each file to be associated with.")
 def main(url: str, username: str, apikey: str, min_score: int, incident_num: int):
     """
     Example:
@@ -51,7 +52,7 @@ def main(url: str, username: str, apikey: str, min_score: int, incident_num: int
     """
     # Phase 1: Parameter validation
     try:
-        validate_parameters(url, username, apikey)
+        validate_parameters(url)
     except Exception as e:
         # If there are any exceptions raised at this point, bail!
         print(e)
@@ -68,31 +69,34 @@ def main(url: str, username: str, apikey: str, min_score: int, incident_num: int
     log.debug(f"Searching for the submission for incident number {incident_num}")
     submission_res = al_client.search.stream.submission(f"params.description:'Incident Number\: {incident_num}' AND max_score:>={min_score}")
     for submission in submission_res:
+
+        # Phase 5: Wait until the submission has completed
+        state = submission["state"]
+        while state != "completed":
+            msg = f"{submission['sid']} is still in the state:{state}. Sleeping for 2 seconds and trying again."
+            print(msg)
+            log.debug(msg)
+            sleep(2)
+            specific_submission_res = al_client.submission.full(submission["sid"])
+            state = specific_submission_res["state"]
+
         # Deep dive into the submission to get the files
         full_sub = al_client.submission.full(submission["sid"])
         for file in full_sub["files"]:
 
             # Report accordingly.
-            if submission["max_score"] >= 1000:
-                msg = f"{file['sha256']},unsafe\n"
-                print(msg)
-                log.debug(msg)
-                report_file.write(msg)
-            else:
-                msg = f"{file['sha256']},safe\n"
-                print(msg)
-                log.debug(msg)
-                report_file.write(msg)
+            msg = f"{file['sha256']},{full_sub['max_score']},{url}/submission/report/{submission['sid']}\n"
+            print(msg)
+            log.debug(msg)
+            report_file.write(msg)
 
     msg = "All done!"
     print(msg)
     log.debug(msg)
 
 
-def validate_parameters(url: str, username: str, apikey: str):
+def validate_parameters(url: str):
     _validate_url(url)
-    # _validate_username(username)
-    # _validate_apikey(apikey)
 
 
 def _validate_url(url: str) -> bool:

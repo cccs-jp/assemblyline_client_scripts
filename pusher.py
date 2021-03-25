@@ -2,7 +2,7 @@
 This file contains the code that does the "pushing". It submits all of the files that the  user
 wants to have submitted to Assemblyline for analysis.
 
-There are 10 phases in the script, each documented accordingly.
+There are 9 phases in the script, each documented accordingly.
 """
 
 # The imports to make this thing work. All packages are default Python libraries except for the
@@ -11,17 +11,17 @@ import click
 import logging
 import os
 from hashlib import sha256
-from queue import Queue
 from re import match
 from subprocess import check_output
-from time import sleep
 from typing import List
+from time import sleep
 
 from assemblyline_client import get_client
 
 # These are the names of the files which we will use for writing and reading information to
 LOG_FILE = "pusher.log"
 HASH_FILE = "hashes.txt"
+SKIPPED_FILE = "skipped.txt"
 
 # These are the max and min size of files able to be submitted to Assemblyline, in bytes
 MAX_FILE_SIZE = 100000000
@@ -72,17 +72,18 @@ def get_id_from_data(data: bytes) -> str:
 @click.option("-p", "--path", required=True, type=click.Path(exists=True, readable=True),
               help="The directory path containing files that you want to submit to Assemblyline.")
 @click.option("-f", "--fresh", is_flag=True, help="We do not care about previous runs and resuming those.")
-@click.option("-w", "--wait", is_flag=True, help="Wait for the analysis of ingested files to complete.")
-@click.option("--incident_num", required=True, type=click.INT,
+@click.option("--incident_num", required=True, type=click.STRING,
               help="The incident number for each file to be associated with.")
-def main(url: str, username: str, apikey: str, ttl: int, classification: str, service_selection: str, is_test: bool, path: str, fresh: bool, wait: bool, incident_num: int):
+@click.option("--retries", default=5, type=click.INT,
+              help="The number of times you want to retry submitting a file after it has failed.")
+def main(url: str, username: str, apikey: str, ttl: int, classification: str, service_selection: str, is_test: bool, path: str, fresh: bool, incident_num: int, retries: int):
     """
     Example:
     python3 pusher.py --url="https://<domain-of-Assemblyline-instance>" --username="<user-name>" --apikey="<api-key-name>:<key>" --classification="<classification>" --service_selection="<service-name>,<service-name>" --path "/path/to/compromised/directory" --incident_num=123
     """
     # Phase 1: Parameter validation
     try:
-        service_selection = validate_parameters(url, username, apikey, ttl, service_selection)
+        service_selection = validate_parameters(url, service_selection)
     except Exception as e:
         # If there are any exceptions raised at this point, bail!
         print(e)
@@ -108,8 +109,6 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
 
     # Phase 4: Initialize key variables
     hash_table = []
-    if wait:
-        notification_queue = Queue()
     number_of_files_ingested = 0
     if fresh and os.path.exists(HASH_FILE):
         os.remove(HASH_FILE)
@@ -133,91 +132,97 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
 
     # Create file handlers for the two information files we need.
     hash_file = open(HASH_FILE, "a+")
+    skipped_file = open(SKIPPED_FILE, "a+")
 
     # Phase 6: Create the Assemblyline Client
     al_client = get_client(url, apikey=(username, apikey))
 
-    # Phase 7: Recursively go through every file in the provided folder and its subfolders.
+    retry_count = 0
+
+    # Phase 7: Recursively go through every file in the provided folder and its sub-folders.
     for root, dir_names, file_names in os.walk(path):
         for file_name in file_names:
-            # Wrap everything in a try-catch so we become invincible
-            try:
-                file_path = os.path.join(root, file_name)
-                file_size = os.path.getsize(file_path)
+            file_path = os.path.join(root, file_name)
 
-                if file_size > MAX_FILE_SIZE:
-                    msg = f"{file_path} is too big. Size: {file_size} > {MAX_FILE_SIZE}."
-                    print(msg)
-                    log.debug(msg)
-                    continue
-                elif file_size < MIN_FILE_SIZE:
-                    msg = f"{file_path} is too small. Size: {file_size} < {MIN_FILE_SIZE}."
-                    print(msg)
-                    log.debug(msg)
-                    continue
+            # Retry up until x number of retries
+            while retry_count < retries:
+                # Wrap everything in a try-catch so we become invincible
+                try:
+                    file_size = os.path.getsize(file_path)
 
-                # Phase 8: Ingestion Logic
+                    # If the file is not within the file size bounds, we can't upload it
+                    if file_size > MAX_FILE_SIZE:
+                        msg = f"{file_path} is too big. Size: {file_size} > {MAX_FILE_SIZE}."
+                        print(msg)
+                        log.debug(msg)
+                        continue
+                    elif file_size < MIN_FILE_SIZE:
+                        msg = f"{file_path} is too small. Size: {file_size} < {MIN_FILE_SIZE}."
+                        print(msg)
+                        log.debug(msg)
+                        continue
 
-                # Create a sha256 hash using the file contents.
-                sha = get_id_from_data(open(file_path, "rb").read())
+                    # Phase 8: Ingestion Logic
 
-                # We only care about files that occur after the last sha in the hash file
-                if resume_ingestion_sha and resume_ingestion_sha == sha:
-                    skip = False
+                    # Create a sha256 hash using the file contents.
+                    sha = get_id_from_data(open(file_path, "rb").read())
 
-                # If we have yet to come up to the file who matches the last submitted sha, continue looking!
-                if skip:
-                    continue
+                    # We only care about files that occur after the last sha in the hash file
+                    if resume_ingestion_sha and resume_ingestion_sha == sha:
+                        skip = False
 
-                # If file is in hash table, don't ingest it
-                if sha in hash_table:
-                    continue
-                else:
-                    hash_table.append(sha)
+                    # If we have yet to come up to the file who matches the last submitted sha, continue looking!
+                    if skip:
+                        continue
 
-                # Phase 9: Ingestion and logging everything
+                    # If file is in hash table, don't ingest it
+                    if sha in hash_table:
+                        continue
+                    else:
+                        hash_table.append(sha)
 
-                # Pre-ingestion logging
-                pre_ingestion_message = f"{file_path} ({sha}) is about to be ingested."
-                print(pre_ingestion_message)
-                log.debug(pre_ingestion_message)
+                    # Phase 9: Ingestion and logging everything
 
-                # Actual ingestion
-                if wait:
-                    resp = al_client.ingest(path=file_path, fname=file_name, nq="notification_queue", params=settings)
-                else:
+                    # Pre-ingestion logging
+                    pre_ingestion_message = f"{file_path} ({sha}) is about to be ingested."
+                    print(pre_ingestion_message)
+                    log.debug(pre_ingestion_message)
+
+                    # Actual ingestion
                     resp = al_client.ingest(path=file_path, fname=file_name, params=settings)
 
-                # Documenting the hash and the ingest_id into the text files
-                number_of_files_ingested += 1
-                hash_file.write(f"{sha}\n")
-                ingest_id = resp['ingest_id']
+                    # Documenting the hash and the ingest_id into the text files
+                    number_of_files_ingested += 1
+                    hash_file.write(f"{sha}\n")
+                    ingest_id = resp['ingest_id']
 
-                # Post ingestion logging
-                post_ingestion_message = f"{file_path} ({sha}) has been ingested with ingest_id {ingest_id}."
-                print(post_ingestion_message)
-                log.debug(post_ingestion_message)
-            except Exception as e:
-                print(e)
-                log.error(e)
+                    # Post ingestion logging
+                    post_ingestion_message = f"{file_path} ({sha}) has been ingested with ingest_id {ingest_id}."
+                    print(post_ingestion_message)
+                    log.debug(post_ingestion_message)
 
-    # Phase 10: The waiting game
-    if wait:
-        messages = al_client.ingest.get_message_list(nq="notification_queue")
-        while len(messages) < number_of_files_ingested:
-            messages = al_client.ingest.get_message_list(nq="notification_queue")
-            sleep(2)
+                    # Success, now break!
+                    break
+                except Exception as e:
+                    print(e)
+                    log.error(e)
+
+                    # Logic for skipping files based on number of retries
+                    retry_count += 1
+                    if retry_count >= retries:
+                        msg = f"{file_path} was skipped due to {e}."
+                        print(msg)
+                        skipped_file.write(msg)
+                    else:
+                        sleep(5)
 
     msg = "All done!"
     print(msg)
     log.debug(msg)
 
 
-def validate_parameters(url: str, username: str, apikey: str, ttl: int, service_selection: str) -> List[str]:
+def validate_parameters(url: str, service_selection: str) -> List[str]:
     _validate_url(url)
-    # _validate_username(username)
-    # _validate_apikey(apikey)
-    # _validate_ttl(ttl)
     return _validate_service_selection(service_selection)
 
 
@@ -226,27 +231,6 @@ def _validate_url(url: str) -> bool:
         return True
     else:
         raise Exception(f"Invalid URL {url}.")
-
-
-# def _validate_username(username: str) -> bool:
-#     if somehow_validate():
-#         return True
-#     else:
-#         raise Exception(f"Invalid username {username}")
-#
-#
-# def _validate_apikey(apikey: str) -> bool:
-#     if somehow_validate():
-#         return True
-#     else:
-#         raise Exception(f"Invalid apikey {apikey}")
-
-
-# def _validate_ttl(ttl: int) -> bool:
-#     if somehow_validate():
-#         return True
-#     else:
-#         raise Exception(f"Invalid ttl {ttl}")
 
 
 def _validate_service_selection(service_selection: str) -> List[str]:
