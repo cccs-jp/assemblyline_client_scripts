@@ -93,6 +93,7 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
     # Phase 2: Setting the parameters
     settings = {
         "ttl": ttl,
+        "ignore_cache": True,
         "description": f"Incident Number: {incident_num}",
         "classification": classification,
         "services": {
@@ -189,7 +190,7 @@ def main(url: str, username: str, apikey: str, ttl: int, classification: str, se
                     log.debug(pre_ingestion_message)
 
                     # Actual ingestion
-                    resp = al_client.ingest(path=file_path, fname=file_name, params=settings, metadata={"source": file_path})
+                    resp = al_client.ingest(path=file_path, fname=file_name, params=settings, metadata={"filename": file_path})
 
                     # Documenting the hash and the ingest_id into the text files
                     number_of_files_ingested += 1
